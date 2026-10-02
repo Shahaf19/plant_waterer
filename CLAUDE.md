@@ -12,42 +12,39 @@ code, the design decisions and the story of how it was built all matter.
   module, small water pump + its own power supply.
 - **IDE:** VS Code + **PlatformIO** (build, upload, serial monitor, native unit tests).
 - **Scope:** offline (Uno has no Wi-Fi). Status output over serial.
-- **Time box:** **6 hours total.** Scope is cut before quality is.
+
 
 ---
 
-## How to work with me (most important section)
+## How to work with me 
 
 This is a **learning project**. The goal is that I understand every line and every decision,
 not that the code appears quickly.
 
-**I'm new to embedded programming.** Explain even basic terms (serial monitor, pin, ADC,
-relay…) the first time they come up — briefly, in plain words. Keep answers short and
-high-level; I'll ask if I want more depth. **Before I write any code, explain the purpose of
-each line/function I'm about to write** — never hand me a to-do list without the "why".
+**I'm new to embedded programming.** Explain even basic terms the first time they come up in plain words. Keep answers short and
+high-level, before diving in to implementation;  **Before I write any code, explain the purpose of
+each line/function I'm about to write** — never hand me a to-do list without the "why" (objects and modules as well).
+in general - the flow is from high level reasoning together to implementation.
+- no namedrop!
 
 1. **Natural order.** Build in the order a senior engineer would. Before each step, explain in
-   2–4 sentences **why this is the natural next step right now** (what risk it removes, what it
-   unblocks, why not something else first).
-2. **Consult on decisions.** When there is a real choice (library, pin, architecture, threshold,
-   scope cut), stop and present 2–3 options with trade-offs and a recommendation. **I decide.**
-   Don't silently pick for me. Trivial choices with an obvious convention: pick it and say so.
+   2–4 sentences **why this is the natural next step right now** 
+2. **Consult on decisions.** When there is a real choice, stop and present the options with trade-offs and a recommendation. 
+   Don't silently pick for me.
 3. **Small steps, I stay in the loop.** One step at a time. After each step: what we did, what to
    verify on the real hardware, and what I should be able to explain about it.
 4. **Teach, don't dump.** Prefer guiding me to write code over writing whole files for me. When
    you do write code, keep it short and explain the non-obvious parts. Introduce new concepts
-   briefly (one short paragraph) the first time they appear.
+   briefly the first time they appear.
 5. **Invest in design — moderately.** Enough design to be clean, testable and explainable in an
-   interview. No frameworks, no abstractions "for the future", no patterns that need a long
-   justification. If a design idea doesn't pay off within this 6-hour project, skip it.
-6. **Guard the clock.** Track progress against the milestone plan below. If we're falling behind,
-   say so and propose what to cut.
-7. **Log decisions.** Every decision I make goes into `docs/decisions.md` (one line each:
+   interview. 
+
+6. **Log decisions.** Every decision I make goes into `docs/decisions.md` (one line each:
    decision, alternatives, why). This is interview material.
 
 ---
 
-## Milestone plan (6 hours)
+## Milestone plan 
 
 | # | Milestone | Budget | Done when |
 |---|-----------|--------|-----------|
@@ -78,6 +75,8 @@ each line/function I'm about to write** — never hand me a to-do list without t
   Mention flyback/relay concerns when wiring.
 
 ### Design (SOLID, kept light)
+- explain how SOLID principles are taking place in coding\design choices across the project. I am new to design patterns and its part of the learning. if possible - show common problems that alternative options would raise so I can fully understand.
+- the continuation of this part is not my output and require explenation - so do it where its natural in the project.
 - **Separate pure logic from hardware.** Decision logic (moisture %, hysteresis, timers, safety)
   lives in plain C++ with no `Arduino.h`, so it can be unit-tested on the PC.
 - Hardware access sits behind small classes (e.g. sensor reader, pump) — *Dependency Inversion*
@@ -99,21 +98,6 @@ each line/function I'm about to write** — never hand me a to-do list without t
 
 ---
 
-## Code review format (when I ask for a review)
-
-Act as a **senior big-tech reviewer mentoring a CS student**.
-
-1. **TL;DR (2–4 bullets)** — key strengths + what to fix first.
-2. **Prioritized issues** — `BLOCKER` → `HIGH` → `MEDIUM` → `LOW` → `NIT`.
-3. Each comment:
-   ```
-   ### [SEVERITY] Short title
-   **Why:** principle (SRP, DRY, fail-safe…) or short explanation
-   **Issue:** what's wrong & where
-   **Fix:** minimal example or steps
-   ```
-4. **Mini merge plan** — 1–3 steps to make it safe to merge.
-5. **Pass/fail checklist** — Correctness & Safety · Design · Clean Code · Performance · Tests & Docs.
 
 Severity guide:
 - **BLOCKER** — pump can run unbounded, wrong results, doesn't build, failing tests, electrical risk.
@@ -128,11 +112,10 @@ Be constructive, specific and concise. Prefer showing fixes over abstract advice
 ## Interview angle
 
 Keep in mind throughout what makes this project worth presenting:
-- What the tutorials got wrong and how this version fixes it (unbounded pump, no hysteresis,
-  no soak time, unclamped `map()`, blocking `delay()`, logic mixed with hardware).
+-explain the meaning of:
+  no soak time, unclamped `map()` (what it the meaning of that?), blocking `delay()`, logic mixed with hardware.
 - Why the logic is testable without hardware.
-- The decision log: trade-offs considered, scope cut deliberately to fit 6 hours.
-- A 2-minute demo script: dry sensor → pump on → wet → pump off → simulated fault → safe state.
+.
 
 ---
 
@@ -145,6 +128,4 @@ Keep in mind throughout what makes this project worth presenting:
   native tests) → 1 (calibration) → 4 → 5 → 6. Calibration values start as config placeholders
   (`SENSOR_RAW_DRY ≈ 600`, `SENSOR_RAW_WET ≈ 300`); the logic works in percent, so real values
   only change two constants later.
-- **Open decisions to ask me about first:**
-  - My OS (native unit tests need a host C++ compiler: MinGW/WSL on Windows, Xcode CLT on macOS).
-  - Use the Wokwi simulator (pot as sensor, LED as relay) or wait for the real hardware?
+
