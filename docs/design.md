@@ -127,15 +127,19 @@ classDiagram
     }
 
     class StatusLogger {
+        -statusIntervalMs_ : uint32_t
+        -lastStatusMs_ : uint32_t
         -lastState_ : State
-        +logIfChanged(state: State, percent: uint8_t) void
+        +StatusLogger(statusIntervalMs: uint32_t)
+        +begin(baud: uint32_t) void
+        +report(state: State, reading: MoistureReading, raw: uint16_t, nowMs: uint32_t) void
     }
 
     MainLoop --> SoilSensor : readRaw()
     MainLoop --> Moisture : moistureFromRaw()
     MainLoop --> WateringController : update()
     MainLoop --> Pump : set()
-    MainLoop --> StatusLogger : logIfChanged()
+    MainLoop --> StatusLogger : report()
     Moisture ..> SensorCalibration : reads
     Moisture ..> MoistureReading : creates
     WateringController ..> MoistureReading : reads
@@ -162,7 +166,7 @@ classDiagram
 | `moistureFromRaw` | Raw value → 0–100 % (clamped); flag readings outside the calibrated range |
 | `WateringController` | The state machine below; time comes in as a parameter, so tests control it |
 | `Pump` | Drive the relay; starts OFF at boot; hides whether the relay is active-LOW |
-| `StatusLogger` | Print a line over serial when the state changes |
+| `StatusLogger` | Over serial: print every state change, plus a status line (state, %, raw) at a fixed interval |
 | `MainLoop` | Wire the parts together, once per `loop()` pass |
 
 ## State machine
