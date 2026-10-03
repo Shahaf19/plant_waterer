@@ -3,7 +3,7 @@
 An automatic plant watering system on an Arduino Uno. It reads a capacitive soil moisture
 sensor and waters the plant in small, timed doses through a relay-switched pump.
 
-> **Status:** work in progress. Design done; firmware and unit tests are being built.
+> **Status:** firmware and unit tests complete; waiting on hardware calibration and on-board checks.
 
 ## Safety by design
 
@@ -50,19 +50,25 @@ flowchart TD
 
 🟩 Green = pure logic, unit-tested on the PC · 🟦 Blue = hardware, checked on the board
 
-More detail: [design](docs/design.md) (components, state machine) ·
-[decision log](docs/decisions.md) (trade-offs and why).
+More detail: [design](docs/design.md) (components, state machine).
 
 ## Hardware
 
-Arduino Uno · capacitive soil moisture sensor · 1-channel relay module · small water pump with
-its own power supply.
+Arduino Uno (USB power) · capacitive soil moisture sensor on **A0** · 1-channel relay module
+(active-LOW) on **D10** · small water pump on its own 3.7 V 18650 battery, switched by the relay.
 
-## Build
+## Configuration
+
+All tunables live in [`include/config.h`](include/config.h). Pick the plant with one line,
+e.g. `ACTIVE_PLANT = MINT` (presets: cactus, herbs, lemongrass, mint, fern).
+
+## Build, test, run
 
 Requires [PlatformIO](https://platformio.org/).
 
 ```bash
+pio test -e native            # run the unit tests on the PC
 pio run -e uno                # build firmware
 pio run -e uno -t upload      # flash the board
+pio device monitor            # watch the status output
 ```
