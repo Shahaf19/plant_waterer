@@ -22,13 +22,33 @@ The watering logic is plain C++ with no Arduino dependencies, so it is unit-test
 Hardware access sits in thin wrappers at the edges.
 
 ```mermaid
-flowchart LR
-    S[SoilSensor<br/><i>hardware</i>] -- raw 0–1023 --> M[Moisture<br/><i>pure logic</i>]
-    M -- "% or bad reading" --> C[WateringController<br/><i>pure logic</i>]
-    T((millis)) -- now --> C
-    C -- on/off --> P[Pump<br/><i>hardware</i>]
-    C -- state, % --> L[StatusLogger<br/><i>hardware: serial</i>]
+flowchart TD
+    Soil(["🌱 Soil"])
+    Read["① Read the sensor"]
+    Convert["② Convert to % and check the sensor works"]
+    Clock(["⏱ Clock"])
+    Decide{"③ Decide what to do"}
+    Pump["④ Switch the pump on / off"]
+    Report["⑤ Report status to the PC"]
+    Water(["💧 Water"])
+
+    Soil -.-> Read
+    Read -->|"raw number 0–1023"| Convert
+    Convert -->|"moisture % or 'sensor broken'"| Decide
+    Clock -.->|"time now"| Decide
+    Decide -->|"pump on?"| Pump
+    Decide -->|"current state"| Report
+    Pump -.-> Water -.-> Soil
+
+    classDef world fill:#eeeeee,stroke:#999,color:#333
+    classDef hardware fill:#4fc3f7,stroke:#333,color:#000
+    classDef logic fill:#00cc88,stroke:#333,color:#000
+    class Soil,Clock,Water world
+    class Read,Pump,Report hardware
+    class Convert,Decide logic
 ```
+
+🟩 Green = pure logic, unit-tested on the PC · 🟦 Blue = hardware, checked on the board
 
 More detail: [design](docs/design.md) (components, state machine) ·
 [decision log](docs/decisions.md) (trade-offs and why).
