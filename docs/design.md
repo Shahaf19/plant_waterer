@@ -5,17 +5,38 @@ relay-switched pump. Watering logic is plain C++ with no `Arduino.h`, so it is u
 
 ## Architecture
 
-One `loop()` pass moves data left to right. Logic never calls hardware; only `main.cpp` knows
-every part.
+What happens in one pass of the main loop (it repeats non-stop). Logic never touches hardware;
+only `main.cpp` connects the steps.
 
 ```mermaid
-flowchart LR
-    S[SoilSensor<br/><i>hardware</i>] -- raw 0–1023 --> M[Moisture<br/><i>pure logic</i>]
-    M -- "% or bad reading" --> C[WateringController<br/><i>pure logic</i>]
-    T((millis)) -- now --> C
-    C -- on/off --> P[Pump<br/><i>hardware</i>]
-    C -- state, % --> L[StatusLogger<br/><i>hardware: serial</i>]
+flowchart TD
+    Soil(["🌱 Soil"])
+    Read["① Read the sensor<br/><i>SoilSensor</i>"]
+    Convert["② Convert to % and check the sensor works<br/><i>moistureFromRaw</i>"]
+    Clock(["⏱ Clock"])
+    Decide{"③ Decide what to do<br/><i>WateringController</i>"}
+    Pump["④ Switch the pump on / off<br/><i>Pump → relay</i>"]
+    Report["⑤ Report status to the PC<br/><i>StatusLogger → USB</i>"]
+    Water(["💧 Water"])
+
+    Soil -.-> Read
+    Read -->|"raw number 0–1023"| Convert
+    Convert -->|"moisture % or 'sensor broken'"| Decide
+    Clock -.->|"time now"| Decide
+    Decide -->|"pump on?"| Pump
+    Decide -->|"current state"| Report
+    Pump -.-> Water -.-> Soil
+
+    classDef world fill:#eeeeee,stroke:#999,color:#333
+    classDef hardware fill:#4fc3f7,stroke:#333,color:#000
+    classDef logic fill:#00cc88,stroke:#333,color:#000
+    class Soil,Clock,Water world
+    class Read,Pump,Report hardware
+    class Convert,Decide logic
 ```
+
+🟩 Green = pure logic, unit-tested on the PC · 🟦 Blue = hardware, checked on the board ·
+⬜ Grey = the physical world
 
 ## Components
 
@@ -33,24 +54,33 @@ classDiagram
 
     class Config {
         <<config.h>>
-        PIN_SENSOR, PIN_RELAY
+        PIN_SENSOR = A0, PIN_RELAY = 10
+        RELAY_ACTIVE_LOW = true
         SENSOR_RAW_DRY ~600, SENSOR_RAW_WET ~300
-        MOISTURE_ON_PERCENT = 40
-        MOISTURE_OFF_PERCENT = 60
+        SENSOR_MARGIN_RAW = 50
+        START_BELOW_PERCENT = 40
+        STOP_AT_PERCENT = 60
         DOSE_MS = 5000
         SOAK_MS = 600000
         MAX_DOSES_IN_ROW = 3
-        RELAY_ACTIVE_LOW
     }
 
     class SoilSensor {
-        -pin : uint8_t
+        -pin_ : uint8_t
+        +SoilSensor(pin: uint8_t)
         +readRaw() uint16_t
     }
 
     class Moisture {
-        <<pure functions>>
-        +fromRaw(raw: uint16_t) MoistureReading
+        <<moisture.h>>
+        +moistureFromRaw(raw: uint16_t, calibration: SensorCalibration) MoistureReading
+    }
+
+    class SensorCalibration {
+        <<struct>>
+        +rawDry : uint16_t
+        +rawWet : uint16_t
+        +marginRaw : uint16_t
     }
 
     class MoistureReading {
@@ -59,41 +89,57 @@ classDiagram
         +percent : uint8_t
     }
 
+    class WateringSettings {
+        <<struct>>
+        +startBelowPercent : uint8_t
+        +stopAtPercent : uint8_t
+        +doseMs : uint32_t
+        +soakMs : uint32_t
+        +maxDosesInRow : uint8_t
+    }
+
     class WateringController {
-        -state : State
-        -stateSinceMs : uint32_t
-        -dosesInRow : uint8_t
+        -settings_ : WateringSettings
+        -state_ : State
+        -stateSinceMs_ : uint32_t
+        -dosesInRow_ : uint8_t
+        +WateringController(settings: WateringSettings)
         +update(reading: MoistureReading, nowMs: uint32_t) void
         +isPumpOn() bool
         +state() State
+        -enterState(state: State, nowMs: uint32_t) void
     }
 
     class State {
         <<enumeration>>
-        MONITORING
-        DOSING
-        SOAKING
-        FAULT
+        Monitoring
+        Dosing
+        Soaking
+        Fault
     }
 
     class Pump {
-        -pin : uint8_t
+        -pin_ : uint8_t
+        -activeLow_ : bool
+        +Pump(pin: uint8_t, activeLow: bool)
         +begin() void
         +set(on: bool) void
     }
 
     class StatusLogger {
-        -lastState : State
+        -lastState_ : State
         +logIfChanged(state: State, percent: uint8_t) void
     }
 
     MainLoop --> SoilSensor : readRaw()
-    MainLoop --> Moisture : fromRaw()
+    MainLoop --> Moisture : moistureFromRaw()
     MainLoop --> WateringController : update()
     MainLoop --> Pump : set()
     MainLoop --> StatusLogger : logIfChanged()
+    Moisture ..> SensorCalibration : reads
     Moisture ..> MoistureReading : creates
     WateringController ..> MoistureReading : reads
+    WateringController *-- WateringSettings
     WateringController *-- State
 
     style MainLoop fill:#fdd835,stroke:#333
@@ -102,7 +148,9 @@ classDiagram
     style Pump fill:#4fc3f7,stroke:#333
     style StatusLogger fill:#4fc3f7,stroke:#333
     style Moisture fill:#00cc88,stroke:#333
+    style SensorCalibration fill:#00cc88,stroke:#333
     style MoistureReading fill:#00cc88,stroke:#333
+    style WateringSettings fill:#00cc88,stroke:#333
     style WateringController fill:#00cc88,stroke:#333
     style State fill:#00cc88,stroke:#333
 ```
@@ -111,7 +159,7 @@ classDiagram
 |-----------|----------------|
 | `Config` | Every tunable number (pins, calibration, thresholds, timings) in one place |
 | `SoilSensor` | Read the raw ADC value from the sensor pin |
-| `Moisture` | Raw value → 0–100 % (clamped); flag readings outside the calibrated range |
+| `moistureFromRaw` | Raw value → 0–100 % (clamped); flag readings outside the calibrated range |
 | `WateringController` | The state machine below; time comes in as a parameter, so tests control it |
 | `Pump` | Drive the relay; starts OFF at boot; hides whether the relay is active-LOW |
 | `StatusLogger` | Print a line over serial when the state changes |
